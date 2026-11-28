@@ -70,7 +70,13 @@ export default function MenuView({
 					{items.map((it) => {
 						const from = Math.min(...it.sizes.map((s) => s.rate));
 						return (
-							<button key={it.sizes[0].item_code} type="button" className="qo-card" onClick={() => onPick(it)}>
+							<button
+								key={it.sizes[0].item_code}
+								type="button"
+								className={`qo-card${it.sold_out ? " is-out" : ""}`}
+								disabled={!!it.sold_out}
+								onClick={() => onPick(it)}
+							>
 								<span className="qo-card__media">
 									{it.image ? (
 										<img className="qo-card__img" src={it.image} alt="" loading="lazy" decoding="async" />
@@ -87,9 +93,13 @@ export default function MenuView({
 											{it.sizes.length > 1 ? <small>từ </small> : null}
 											{money(from, currency)}
 										</span>
-										<span className="qo-card__add" aria-hidden="true">
-											<IconPlus size={18} />
-										</span>
+										{it.sold_out ? (
+											<span className="qo-card__out">Hết hàng</span>
+										) : (
+											<span className="qo-card__add" aria-hidden="true">
+												<IconPlus size={18} />
+											</span>
+										)}
 									</span>
 								</span>
 							</button>

@@ -28,6 +28,20 @@ function waitInfo(creation: string, now: number) {
 	return { min, level };
 }
 
+/** Tách món theo cờ "Gửi pha chế" (2026-11-29): `items` = món pha chế (tem ly, nút In), `counter_items` = món lấy tại quầy. */
+/** Tóm tắt mọi món (pha chế + lấy tại quầy) cho tab Đã hoàn thành. */
+const allItemsText = (o: KitchenOrder) =>
+	[...o.items, ...(o.counter_items || [])].map((it) => `${it.qty}× ${it.item_name}`).join(", ");
+
+function splitKitchenItems(o: KitchenOrder): KitchenOrder {
+	const all = o.items || [];
+	return {
+		...o,
+		items: all.filter((it) => it.send_to_kitchen !== 0),
+		counter_items: all.filter((it) => it.send_to_kitchen === 0),
+	};
+}
+
 export default function Kitchen() {
 	const { config } = usePos();
 	// Tab và bước chuyển theo role, lấy từ get_pos_config (backend vẫn kiểm tra lại).
@@ -55,7 +69,7 @@ export default function Kitchen() {
 
 	const load = useCallback(async () => {
 		try {
-			setOrders((await api.getKitchenOrders()) || []);
+			setOrders(((await api.getKitchenOrders()) || []).map(splitKitchenItems));
 			setError("");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -217,7 +231,7 @@ export default function Kitchen() {
 						const step = nextOf(o.kitchen_status);
 						// Chỉ tab Chưa làm được in tem; "Đã làm" khóa tới khi đã in ít nhất một lần.
 						const canPrint = o.kitchen_status === "Chưa làm";
-						const needPrint = canPrint && !printed.has(o.name);
+						const needPrint = canPrint && o.items.length > 0 && !printed.has(o.name);
 						const cupsOf = canPrint ? cupIndexes(o) : null;
 						const loadingPrint = printBusy === o.name;
 						return (
@@ -241,8 +255,8 @@ export default function Kitchen() {
 								{/* Đã hoàn thành: chỉ để tra lại -> một dòng tóm tắt (tối đa 2 dòng), không tùy chọn / tem / ghi chú.
 								    Chưa làm / Đã làm: đủ chi tiết để pha chế (món, số lượng, tùy chọn, ghi chú đơn). */}
 								{o.kitchen_status === "Đã hoàn thành" ? (
-									<p className="pos-kcard__summary" title={o.items.map((it) => `${it.qty}× ${it.item_name}`).join(", ")}>
-										{o.items.map((it) => `${it.qty}× ${it.item_name}`).join(", ")}
+									<p className="pos-kcard__summary" title={allItemsText(o)}>
+										{allItemsText(o)}
 									</p>
 								) : (
 								<ul className="pos-kcard__items">
@@ -281,6 +295,13 @@ export default function Kitchen() {
 									))}
 								</ul>
 								)}
+
+								{o.counter_items?.length && o.kitchen_status !== "Đã hoàn thành" ? (
+									<div className="pos-kcard__counter">
+										{o.items.length ? "Lấy tại quầy: " : "Không có món pha chế · Lấy tại quầy: "}
+										{o.counter_items.map((it) => `${it.qty}× ${it.item_name}`).join(", ")}
+									</div>
+								) : null}
 
 								{o.order_note && o.kitchen_status !== "Đã hoàn thành" ? (
 									<div className="pos-kcard__note">{o.order_note}</div>

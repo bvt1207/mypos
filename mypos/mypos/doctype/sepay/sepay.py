@@ -335,6 +335,14 @@ def sepay_webhook():
             ensure_ascii=False,
         )
 
+        # 7b. Thiếu tồn khi submit (Q4, 2026-11-29): tiền đã về nhưng ERPNext sẽ từ chối submit vì tồn bị trừ ngoài POS
+        #     sau khi đơn giữ chỗ. Không submit, giữ đơn Draft, ghi nhận để quản lý xử lý; trả success để SePay không gửi lại.
+        from ..pos_invoice_hooks.stock_availability import submit_shortfall
+
+        missing = submit_shortfall(invoice)
+        if missing:
+            return _record_stock_blocked_payment(invoice, payload, transaction_id, amount, missing)
+
         # 8. Lưu và submit POS Invoice.
         # Webhook là allow_guest (user Guest). save/submit của ERPNext gọi
         # get_party_account -> account_perm_check, không bị ignore_permissions bỏ qua.
@@ -451,6 +459,85 @@ def _record_late_payment(invoice, payload, transaction_id, amount):
         invoice.name,
         fallback_all=True,
     )
+    return response
+
+
+def _record_stock_blocked_payment(invoice, payload, transaction_id, amount, missing):
+    """Tiền về cho đơn Draft nhưng không đủ tồn để submit (Q4). Gọi SAU xác thực chữ ký + khớp số tiền.
+
+    Đơn giữ Draft (không thanh toán). Ghi giao dịch vào sepay_payment_log (đánh dấu stock_blocked), Comment, Error Log,
+    Notification Log cho quản lý của POS Profile (không có ai -> mọi POS MANAGER). Idempotent theo transaction_id.
+    Quản lý: nhập / điều chỉnh kho rồi submit đơn trên Desk (mode chuyển khoản), hoặc hủy đơn + hoàn tiền.
+    """
+    from ..pos_invoice_hooks.kitchen_status import notify_profile_managers
+
+    message = "Đơn {0} chưa đủ hàng để xác nhận; giao dịch được ghi nhận để đối soát.".format(invoice.name)
+    response = {"success": True, "needs_review": True, "message": message}
+
+    row = frappe.db.sql(
+        "SELECT `sepay_payment_log` FROM `tabPOS Invoice` WHERE `name` = %s FOR UPDATE",
+        (invoice.name,),
+        as_dict=True,
+    )[0]
+    try:
+        log = _json.loads(row.sepay_payment_log or "[]")
+        if not isinstance(log, list):
+            log = [log]
+    except (ValueError, TypeError):
+        log = []
+    if transaction_id and any(
+        isinstance(e, dict) and e.get("stock_blocked") and e.get("transaction_id") == transaction_id for e in log
+    ):
+        return response
+
+    received_at = frappe.utils.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
+    log.append(
+        {
+            "stock_blocked": True,
+            "missing": missing,
+            "content": payload.get("content") or payload.get("code"),
+            "transaction_id": transaction_id,
+            "referenceCode": payload.get("referenceCode"),
+            "transferAmount": amount,
+            "gateway": payload.get("gateway"),
+            "transactionDate": payload.get("transactionDate"),
+            "received_at": received_at,
+        }
+    )
+    frappe.db.set_value(
+        "POS Invoice",
+        invoice.name,
+        {"sepay_payment_log": _json.dumps(log[-50:], ensure_ascii=False)},
+        update_modified=True,
+    )
+    amount_text = frappe.format_value(flt(amount), {"fieldtype": "Currency"})
+    missing_text = ", ".join(missing)
+    frappe.get_doc(
+        {
+            "doctype": "Comment",
+            "comment_type": "Info",
+            "reference_doctype": "POS Invoice",
+            "reference_name": invoice.name,
+            "content": _("Tiền về nhưng không đủ hàng để xác nhận đơn (thiếu: {0}): mã giao dịch {1}, số tiền {2}, nhận lúc {3}. "
+                "Nhập / điều chỉnh kho rồi submit đơn, hoặc hủy + hoàn tiền.").format(
+                missing_text, transaction_id or "(không có)", amount_text, received_at
+            ),
+        }
+    ).insert(ignore_permissions=True)
+    frappe.log_error(
+        title="SePay: tiền về nhưng thiếu tồn để submit",
+        message=f"invoice={invoice.name}\nmissing={missing_text}\ntransaction={transaction_id}\namount={amount}",
+    )
+    notify_profile_managers(
+        invoice.pos_profile,
+        _("Đơn {0}: đã nhận {1} nhưng thiếu hàng ({2}) — cần xử lý.").format(invoice.name, amount_text, missing_text),
+        "POS Invoice",
+        invoice.name,
+        fallback_all=True,
+    )
+    from ..pos_invoice_hooks.change_feed import bump
+
+    bump(invoice.pos_profile)
     return response
 
 

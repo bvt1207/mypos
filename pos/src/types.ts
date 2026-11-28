@@ -83,6 +83,26 @@ export interface MenuItem {
 	option_groups?: OptionGroup[];
 	/** Item Group của món (template -> nhóm của template); dùng cho tab lọc ở lưới món. */
 	item_group?: string | null;
+	/** Cờ "Gửi pha chế" của dòng MYPOS Menu (0 = giao tại quầy). Chỉ hiển thị; server tự ghi lên đơn. */
+	send_to_kitchen?: number;
+}
+
+/** Tồn khả dụng của một mã bán (get_stock_availability, docs/rules/stock.md). */
+export interface StockInfo {
+	/** "stock": món quản lý tồn; "bundle": món có Product Bundle (số ly tối đa theo định mức). */
+	kind: "stock" | "bundle";
+	qty: number;
+	/** 1 = chặn khi vượt; 0 = món cho phép âm (chỉ hiện số). */
+	enforce: number;
+	/** Tên nguyên liệu đang thiếu cho 1 đơn vị (bundle). */
+	short: string[];
+}
+
+export interface StockAvailability {
+	profile: string;
+	v: string;
+	warehouse: string;
+	items: Record<string, StockInfo>;
 }
 
 // ---- Tùy chọn món động (MYPOS Option) — không hardcode tên nhóm/giá trị ----
@@ -323,6 +343,8 @@ export interface OrderItem {
 	price_list_rate?: number;
 	discount_percentage?: number;
 	pricing_rules?: string[];
+	/** 0 = món không qua pha chế (lấy tại quầy): không in tem ly / phiếu pha chế. */
+	send_to_kitchen?: number;
 }
 
 export interface PricingPreviewItem {
@@ -351,6 +373,8 @@ export interface KitchenItem {
 	item_code: string;
 	item_name: string;
 	qty: number;
+	/** 0 = món lấy tại quầy (màn Pha chế chỉ ghi chú). Thiếu (server cũ) = 1. */
+	send_to_kitchen?: number;
 	sugar_level?: string;
 	ice_level?: string;
 	options?: LineOption[];
@@ -367,7 +391,10 @@ export interface KitchenOrder {
 	buzzer_number: string | null;
 	order_note: string | null;
 	creation: string;
+	/** Món cần pha chế (cờ "Gửi pha chế" = 1). Màn Pha chế tách ở client (splitKitchenItems). */
 	items: KitchenItem[];
+	/** Món lấy tại quầy (cờ = 0): chỉ ghi chú để thu ngân giao cùng, không in tem. */
+	counter_items?: KitchenItem[];
 }
 /** Đơn chờ phục vụ (get_serve_queue): tại quầy, đã thanh toán, pha chế "Đã làm". Dine In = mang tới thẻ bàn. */
 export interface ServeQueueItem {

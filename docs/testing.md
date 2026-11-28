@@ -40,10 +40,22 @@ Quy ước mỗi script:
 | | `surcharge_check.check_option_surcharge` | Quán thử + ca mở + CTKM |
 | | `order_qr_selftest.run_order_qr_selftest` | Quán thử + ca mở |
 | | `order_history_selftest.run_order_history_selftest` (gọi tiếp bộ QR, `run_old=True`) | Quán thử + ca mở |
+| | `stock_paid_check.check_stock_paid` (0.3.0: tồn khả dụng sau thanh toán, món tồn + bundle, khớp hàm ERPNext, sổ kho tăng phiên bản) | Quán thử + tồn tạm (`stock_fixture`) |
+| | `stock_draft_hold_check.check_stock_draft_hold` (nháp giữ chỗ, hủy trả chỗ) | Quán thử + tồn tạm |
+| | `stock_oversell_check.check_stock_oversell` (server chặn vượt tồn, độc lập Stock Settings → Allow Negative Stock, 2 kết nối DB song song cùng bán món cuối) | Quán thử + tồn tạm |
+| | `kitchen_flag_check.check_kitchen_flag` (cờ "Gửi pha chế" = 0: không vào bếp, đơn chỉ món này → Sẵn sàng) | Quán thử + user tạm POS KITCHEN |
+| | `kitchen_mixed_check.check_kitchen_mixed` (đơn hỗn hợp) | Quán thử |
+| | `bundle_capacity_check.check_bundle_capacity` (số ly bundle = min nguyên liệu, theo từng size, "Hết: …") | Quán thử + tồn tạm |
 | Công cụ | `test_shop.zz_test_shop` (dựng / dọn / liệt kê quán thử), `check_everything.check_everything` (chạy gộp) | — |
 
-Tổng: 1 điều kiện nền + 4 chỉ đọc + 3 ghi không cần quán + 17 ghi quán thử = 25 test (0.2.0: thêm `payment_mode_check`, `sepay_hmac_check`,
-`remove_api_key_patch_check`).
+Tổng: 1 điều kiện nền + 4 chỉ đọc + 3 ghi không cần quán + 23 ghi quán thử = 31 test (0.2.0: thêm `payment_mode_check`, `sepay_hmac_check`,
+`remove_api_key_patch_check`; 0.3.0: thêm 6 test tồn kho / Gửi pha chế).
+
+Tồn tạm (`stock_fixture.zz_stock_fixture`): món `ZZTEST-*-<mã>` quản lý tồn + Bin ở kho của POS Profile thử, ghi thẳng `Bin.actual_qty`
+(KHÔNG tạo Stock Entry / sổ kho / bút toán), Product Bundle tạm; dọn Bin + Product Bundle trước khi dọn quán thử. `zz_test_shop("list")`
+liệt kê cả Bin / Product Bundle `ZZTEST*` còn sót. `stock_oversell_check` C2 bật tạm Stock Settings → Allow Negative Stock TRONG giao dịch
+rồi rollback ngay (không commit); C4 mở 2 kết nối DB bằng thread — không dựng được thì in "CHƯA KIỂM CHỨNG: phần song song" và chạy dự phòng
+tuần tự.
 
 ## 2. Điều kiện nền và cách tạo
 
@@ -122,7 +134,7 @@ Dữ liệu ghi trong console không tự commit; các script tự commit / roll
 | `check_workspace_shortcuts` | PASS | PASS |
 | `check_apps_screen_roles` | PASS (user tạm, không cần dữ liệu) | PASS |
 | `check_kitchen_desk` | PASS | PASS |
-| 16 test quán thử | SKIP: "Thiếu điều kiện nền: ..." | PASS (mục cần SePay / Loyalty có thể in SKIP riêng) |
+| 23 test quán thử | SKIP: "Thiếu điều kiện nền: ..." | PASS (mục cần SePay / Loyalty có thể in SKIP riêng) |
 
 **Đã chạy trên bench thật (2026-11-27):** frappe / erpnext 16.61.0, một site mới (Setup Wizard Vietnam / VND, POS Settings
 Invoice Type = POS Invoice), `check_everything` → **25/25 PASS, 0 SKIP** (2026-11-28, bản 0.2.0; trước 23/23, 22/22); quán thử dựng và dọn sạch ở cả 17 test (`zz_test_shop("list")`

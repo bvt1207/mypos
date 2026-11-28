@@ -6,7 +6,8 @@
 ## 1. DocType
 
 - `MYPOS Menu` (module "MYPOS"): `menu_name`, `price_list` (Link → Price List), `currency` (default VND), `items` (Table → MYPOS Menu Item).
-- `MYPOS Menu Item` (child table): `item_code` (Link → Item), `item_name`, `item_type`, `price`, `currency`.
+- `MYPOS Menu Item` (child table): `item_code` (Link → Item), `item_name`, `item_type`, `price`, `currency`,
+  `send_to_kitchen` ("Gửi pha chế", Check, mặc định 1; 0.3.0 — `stock.md` §5). Payload `get_menu_items` thêm khóa `send_to_kitchen` mỗi món.
 
 ## 2. Price logic (shared between `get_price_for_item()` and `load_item_price()`)
 

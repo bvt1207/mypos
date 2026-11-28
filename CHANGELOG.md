@@ -3,6 +3,41 @@
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); số phiên bản theo [SemVer](https://semver.org/lang/vi/)
 (trước 1.0.0: tăng số giữa khi có thay đổi phá vỡ tương thích).
 
+## [0.3.0] — 2026-11-29
+
+Tính năng mới: tồn kho trên `/pos`, chặn bán vượt tồn, cờ "Gửi pha chế". Có **thay đổi hành vi** — đọc trước khi nâng cấp.
+
+### Thay đổi hành vi
+- **Chặn bán vượt tồn khả dụng** khi tạo đơn ở `/pos` và `/order` (server, khóa Bin trong cùng giao dịch: hai thu ngân cùng bán món cuối
+  chỉ một đơn thành công). Tồn khả dụng = tồn sổ − giữ chỗ (Stock Reservation) − đã bán chưa gộp − **đơn nháp đang giữ chỗ**. Chặn độc lập
+  với Stock Settings → Allow Negative Stock; chỉ món có `Item.allow_negative_stock = 1` không bị chặn. Kho luôn là kho của POS Profile
+  (API không còn nhận `warehouse` từ client).
+- Đơn nháp giữ chỗ tồn từ lúc tạo; hủy (tay / tự hủy) trả lại.
+- **Màn Pha chế lọc theo cờ "Gửi pha chế"** của dòng MYPOS Menu: chỉ món cờ 1 hiện / in tem ly / phiếu pha chế; món cờ 0 ghi "Lấy tại quầy".
+  Đơn chỉ gồm món cờ 0 chuyển thẳng "Đã làm" khi thanh toán (cột Sẵn sàng ở `/pos/status`), pha chế không thấy.
+- **Món cũ mặc định "Gửi pha chế" = 1** (migrate thêm cột mặc định 1) → hành vi cũ giữ nguyên cho tới khi quản lý bỏ chọn trên menu.
+- Thu tiền mặt khi tồn đã bị trừ ngoài POS → lỗi tiếng Việt "Không đủ hàng để thanh toán…". Webhook SePay trong trường hợp này: không submit,
+  đơn giữ Draft, ghi nhận để quản lý xử lý (`needs_review`, Notification Log).
+
+### Thêm
+- `/pos`: số tồn khả dụng (xanh; 0 đỏ + thẻ mờ) cho món quản lý tồn; món có Product Bundle hiện số ly tối đa theo định mức ở bước chọn size,
+  hết thì "Hết: <nguyên liệu>". Giỏ: "+" dừng ở mức tồn, nhập tay vượt tự hạ + thông báo. Cập nhật theo phiên bản thay đổi + realtime.
+- `/order`: "Hết hàng" (không hiện số).
+- Field `MYPOS Menu Item.send_to_kitchen` ("Gửi pha chế"), Custom Field `POS Invoice Item.custom_send_to_kitchen`.
+- Nhập / xuất kho (Stock Ledger Entry) tăng phiên bản thay đổi của POS Profile dùng kho đó → số tồn trên `/pos` cập nhật ngay.
+- API `pos_api.get_stock_availability`. Selfcheck: `stock_paid_check`, `stock_draft_hold_check`, `stock_oversell_check`,
+  `kitchen_flag_check`, `kitchen_mixed_check`, `bundle_capacity_check` (tổng 31 test). Quy tắc: `docs/rules/stock.md`.
+
+### Nâng cấp từ 0.2.x
+1. Cập nhật code trong `apps/mypos`.
+2. `bench --site <site> migrate` — thêm "Gửi pha chế" (MYPOS Menu Item) + Custom Field dòng hóa đơn (mặc định 1).
+3. `cd apps/mypos/pos && npm run build` (không thêm package; site mới: `npm install` trước).
+4. `bench build --app mypos`.
+5. Khởi động lại bench (`bench restart` hoặc dừng / chạy lại `bench start`) — đổi Python + hooks (doc_events Stock Ledger Entry).
+6. Desk → MYPOS Menu: bỏ chọn "Gửi pha chế" cho món giao tại quầy (bánh, nước đóng chai...).
+7. Kiểm tồn đầu kỳ của món quản lý tồn (món tồn 0 sẽ không bán được). Không bật Stock Settings → Allow Negative Stock.
+8. `bench --site <site> execute mypos.selfcheck.check_everything.check_everything` → 31 test.
+
 ## [0.2.0] — 2026-11-28
 
 Bản sửa **bảo mật** và thay đổi hành vi. Đọc mục "Nâng cấp từ 0.1.x" trước khi cập nhật.

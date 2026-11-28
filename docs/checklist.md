@@ -28,6 +28,11 @@ Chi tiết: `deploy.md` §5. User test KHÔNG có role `Workspace Manager`.
 | B4 | Kết thúc đơn | Cashier → Pha chế, tab Đã làm → "Đã hoàn thành" | Đơn sang tab Đã hoàn thành, chấm đỏ giảm | |
 | B5 | Thẻ bàn | Tại quán, chọn thẻ số 1, tạo đơn; đơn thứ hai chọn lại thẻ 1 | Đơn 2 bị chặn "Thẻ bàn số … đang giữ cho đơn …"; sau khi đơn 1 Đã hoàn thành (hoặc hủy) thẻ 1 chọn lại được | |
 | B6 | Hủy đơn | Orders → Draft → Hủy, lý do "Đặt nhầm" | Đơn Cancelled, `custom_cancel_reason` = "Thủ công: Đặt nhầm"; thẻ bàn (nếu có) trả lại | |
+| B7 | Tồn kho (0.3.0) | `/pos`: món quản lý tồn (vd. bánh) hiện số xanh; tạo nháp 1 cái | Số giảm 1 (giữ chỗ); hủy nháp → tăng lại; số 0 → đỏ, thẻ mờ, không thêm được | |
+| B8 | Chặn vượt tồn | Giỏ: bấm "+" tới mức tồn; gõ số lớn hơn tồn | "+" tắt ở mức tồn; số gõ tự hạ về mức tồn + toast "chỉ còn N" | |
+| B9 | 2 thu ngân, món cuối | Tồn = 1; hai máy cùng giỏ 1 cái, bấm Tạo đơn gần như cùng lúc | Một máy tạo được; máy kia "Không đủ hàng để tạo đơn: … đã hết hàng"; số trên máy kia về 0 | |
+| B10 | Gửi pha chế = 0 | Đơn chỉ bánh / nước chai, thu tiền | Không vào màn Pha chế của KITCHEN; `/pos/status` cột Sẵn sàng ngay; thu ngân giao → "Đã hoàn thành" | |
+| B11 | Đơn hỗn hợp | Cà phê + bánh, thu tiền | Pha chế chỉ thấy cà phê + dòng "Lấy tại quầy: bánh"; tem ly chỉ cà phê | |
 
 ## C. Thanh toán chuyển khoản + SePay giả lập
 

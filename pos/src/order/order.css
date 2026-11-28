@@ -2183,3 +2183,18 @@ button:disabled {
 		display: none;
 	}
 }
+
+/* Hết hàng (2026-11-29): server gắn sold_out theo tồn khả dụng; không hiện số tồn cho khách. */
+.qo-card.is-out {
+	opacity: .5;
+	cursor: not-allowed;
+}
+.qo-card__out {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--pos-error);
+}
+.qo-chip:disabled {
+	opacity: .45;
+	cursor: not-allowed;
+}

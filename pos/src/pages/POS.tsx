@@ -5,6 +5,9 @@ import CartPanel from "../components/CartPanel";
 import CustomerPicker from "../components/CustomerPicker";
 import BuzzerPicker from "../components/BuzzerPicker";
 import { api } from "../lib/api";
+import { usePosRefresh } from "../lib/changes";
+import { SERVE_POLL_MS } from "../lib/serve";
+import { useStock } from "../store/stock";
 import { missingRequired } from "../lib/options";
 import { usePos } from "../lib/pos-context";
 import { useCart, cartCount } from "../store/cart";
@@ -37,6 +40,15 @@ export default function POS() {
 	const [preview, setPreview] = useState<PricingPreview | null>(null);
 	const [previewError, setPreviewError] = useState("");
 	const [previewLoading, setPreviewLoading] = useState(false);
+
+	// Tồn khả dụng theo kho của POS Profile (docs/rules/stock.md): tải khi mở, khi phiên bản thay đổi (đơn mới / thanh toán /
+	// hủy / nhập xuất kho -> realtime ngay, không socket: poll SERVE_POLL_MS) và lưới an toàn 60 giây.
+	const setStock = useStock((state) => state.set);
+	const loadStock = async () => {
+		const r = await api.getStockAvailability();
+		setStock(r.items || {});
+	};
+	usePosRefresh(loadStock, { enabled: !!config, intervalMs: SERVE_POLL_MS });
 
 	// Price List lấy từ menu đầu tiên có price_list.
 	const priceList = useMemo(
@@ -204,6 +216,8 @@ export default function POS() {
 			navigate(`/orders?draft=${encodeURIComponent(result.invoice_name)}`);
 		} catch (err) {
 			setFormError(err instanceof Error ? err.message : String(err));
+			// Có thể vừa hết hàng (máy khác bán) -> nạp lại số tồn ngay.
+			void loadStock().catch(() => undefined);
 		} finally {
 			setSubmitting(false);
 		}

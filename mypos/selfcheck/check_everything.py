@@ -50,6 +50,13 @@ def check_everything(include_write=True, only=None):
 		("surcharge_check", "check_option_surcharge"),
 		("order_qr_selftest", "run_order_qr_selftest"),
 		("order_history_selftest", "run_order_history_selftest"),
+		# mypos 0.3.0: tồn khả dụng, chặn bán vượt tồn, cờ "Gửi pha chế" (docs/rules/stock.md)
+		("stock_paid_check", "check_stock_paid"),
+		("stock_draft_hold_check", "check_stock_draft_hold"),
+		("stock_oversell_check", "check_stock_oversell"),
+		("kitchen_flag_check", "check_kitchen_flag"),
+		("kitchen_mixed_check", "check_kitchen_mixed"),
+		("bundle_capacity_check", "check_bundle_capacity"),
 	]
 	FAIL_RE = re.compile(r"^\s*FAIL\b", re.M)
 	PASS_RE = re.compile(r"^\s*(?:PASS\b|OK\s)", re.M)

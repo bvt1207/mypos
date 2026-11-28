@@ -3136,3 +3136,68 @@ button.pos-cart-line__main:hover {
 		justify-content: center;
 	}
 }
+
+/* ---------------------------------------------------------------------------
+   Tồn khả dụng (2026-11-29, docs/rules/stock.md): số xanh = còn, 0 đỏ = hết; thẻ hết làm mờ, không bấm.
+   --------------------------------------------------------------------------- */
+.pos-stock {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 26px;
+	padding: 1px 7px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 18px;
+	font-variant-numeric: tabular-nums;
+}
+.pos-stock--ok {
+	color: var(--pos-success);
+	background: var(--pos-success-soft);
+}
+.pos-stock--out {
+	color: var(--pos-error);
+	background: var(--pos-error-soft);
+	border: 1px solid var(--pos-error-border);
+}
+.pos-menu-card__stock {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+}
+.pos-menu-card.is-out {
+	opacity: .45;
+}
+.pos-menu-card.is-out .pos-menu-card__stock {
+	opacity: 1;
+}
+.pos-menu-card__short {
+	padding: 0 10px 8px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--pos-error);
+}
+.pos-size-row__stock {
+	margin-left: 8px;
+}
+.pos-size-row__short {
+	display: block;
+	margin-top: 2px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--pos-error);
+}
+.pos-cart-line__qty .pos-step:disabled {
+	opacity: .35;
+	cursor: not-allowed;
+}
+
+.pos-kcard__counter {
+	margin-top: 6px;
+	padding: 6px 10px;
+	border-radius: 8px;
+	border: 1px dashed var(--pos-border);
+	font-size: 13px;
+	color: var(--pos-text-muted);
+}

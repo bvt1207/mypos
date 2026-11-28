@@ -34,6 +34,9 @@ Nguyên tắc không được vi phạm:
 - 2026-11-28 (0.2.0): webhook SePay chỉ nhận chữ ký **HMAC-SHA256** (`X-SePay-Signature` / `X-SePay-Timestamp`, secret ở
   `Branch.sepay_webhook_secret`), chống phát lại; field SePay cũ đã xóa (patch `v1_remove_sepay_api_key`); thêm `sepay_hmac_check`,
   `remove_api_key_patch_check` → 25 test (`docs/rules/sepay.md` §1, `CHANGELOG.md`). Nâng cấp: migrate + điền secret + đổi webhook SePay.
+- 2026-11-29 (0.3.0): tồn khả dụng trên `/pos` (kho của POS Profile; món bundle = số ly tối đa theo định mức), chặn bán vượt tồn ở server
+  (khóa Bin, độc lập Allow Negative Stock), đơn nháp giữ chỗ; cờ "Gửi pha chế" trên dòng MYPOS Menu (đơn không có món pha chế → "Đã làm"
+  ngay); 6 selfcheck mới → 31 test (`docs/rules/stock.md`, `CHANGELOG.md`). Nâng cấp: migrate + npm run build + bench build + restart.
 - Tồn đọng đã biết: MYPOS Menu tra giá cố định VND (`docs/rules/menu.md` §2); role POS DISPLAY cho TV `/pos/status` (`docs/rules/order_status.md` §6);
   sửa dòng rồi Submit thẳng trên Desk (không Save) có thể bị ERPNext tính CTKM theo dòng (`docs/rules/options.md` §7).
 

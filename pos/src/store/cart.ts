@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { normalizeOptions, optionsKey } from "../lib/options";
 import type { CartLine, CartOption } from "../types";
+import { lineCap, notifyCapped } from "./stock";
 
 type NewLine = Omit<CartLine, "qty" | "options" | "option_groups"> &
 	Partial<Pick<CartLine, "options" | "option_groups">> & { qty?: number };
@@ -45,8 +46,22 @@ function toLine(item: NewLine): CartLine {
 	} as CartLine;
 }
 
+/** Tên hiển thị trong thông báo tồn: "Tên món (M)". */
+function lineLabel(line: Pick<CartLine, "item_name" | "size" | "item_code">): string {
+	const name = line.item_name || line.item_code;
+	return line.size ? `${name} (${line.size})` : name;
+}
+
 function addLine(lines: CartLine[], item: NewLine): CartLine[] {
-	const line = toLine(item);
+	let line = toLine(item);
+	// Không vượt tồn khả dụng (tính tổng mọi dòng cùng mã); server vẫn kiểm lại khi tạo đơn.
+	const room = lineCap(lines, line.item_code, null, cartLineKey);
+	if (room !== null && line.qty > room) {
+		const already = lines.filter((l) => l.item_code === line.item_code).reduce((s, l) => s + l.qty, 0);
+		notifyCapped(lineLabel(line), room + already);
+		if (room <= 0) return lines;
+		line = { ...line, qty: room };
+	}
 	const key = cartLineKey(line);
 	if (lines.some((l) => cartLineKey(l) === key)) {
 		return lines.map((l) => (cartLineKey(l) === key ? { ...l, qty: l.qty + line.qty } : l));
@@ -65,11 +80,21 @@ export const useCart = create<CartState>((set, get) => ({
 	addVariant: (line) => set((state) => ({ lines: addLine(state.lines, line) })),
 
 	increment: (key) =>
-		set((state) => ({
-			lines: state.lines.map((line) =>
-				cartLineKey(line) === key ? { ...line, qty: line.qty + 1 } : line
-			),
-		})),
+		set((state) => {
+			const current = state.lines.find((l) => cartLineKey(l) === key);
+			if (!current) return state;
+			// Nút tăng dừng ở mức tồn khả dụng.
+			const cap = lineCap(state.lines, current.item_code, key, cartLineKey);
+			if (cap !== null && current.qty + 1 > cap) {
+				notifyCapped(lineLabel(current), cap + (state.lines
+					.filter((l) => l.item_code === current.item_code && cartLineKey(l) !== key)
+					.reduce((s, l) => s + l.qty, 0)));
+				return state;
+			}
+			return {
+				lines: state.lines.map((line) => (cartLineKey(line) === key ? { ...line, qty: line.qty + 1 } : line)),
+			};
+		}),
 
 	decrement: (key) =>
 		set((state) => ({
@@ -81,11 +106,24 @@ export const useCart = create<CartState>((set, get) => ({
 		})),
 
 	setQty: (key, qty) => {
-		const value = Math.min(MAX_LINE_QTY, Math.max(1, Math.floor(qty)));
+		let value = Math.min(MAX_LINE_QTY, Math.max(1, Math.floor(qty)));
 		if (!Number.isFinite(value)) return;
-		set((state) => ({
-			lines: state.lines.map((line) => (cartLineKey(line) === key ? { ...line, qty: value } : line)),
-		}));
+		set((state) => {
+			const current = state.lines.find((l) => cartLineKey(l) === key);
+			if (!current) return state;
+			// Nhập tay vượt tồn -> tự hạ về mức tồn còn lại cho dòng này (tối thiểu 1: không tự xóa dòng) + thông báo ngắn.
+			const cap = lineCap(state.lines, current.item_code, key, cartLineKey);
+			if (cap !== null && value > cap) {
+				value = Math.max(1, cap);
+				const others = state.lines
+					.filter((l) => l.item_code === current.item_code && cartLineKey(l) !== key)
+					.reduce((s, l) => s + l.qty, 0);
+				notifyCapped(lineLabel(current), cap + others);
+			}
+			return {
+				lines: state.lines.map((line) => (cartLineKey(line) === key ? { ...line, qty: value } : line)),
+			};
+		});
 	},
 
 	remove: (key) =>

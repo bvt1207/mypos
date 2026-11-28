@@ -54,6 +54,8 @@ export interface SizeOption {
 	label: string;
 	item_code: string;
 	rate: number;
+	/** Hết hàng theo tồn khả dụng của quán (server tính, không có số tồn). Server vẫn chặn khi đặt. */
+	sold_out?: boolean;
 }
 
 export interface MenuItem {
@@ -62,6 +64,8 @@ export interface MenuItem {
 	template: boolean;
 	sizes: SizeOption[];
 	option_groups: OptionGroup[];
+	/** Mọi size đều hết hàng. */
+	sold_out?: boolean;
 }
 
 export interface Menu {

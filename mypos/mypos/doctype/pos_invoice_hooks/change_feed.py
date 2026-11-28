@@ -82,6 +82,62 @@ def on_doc_change(doc, method=None):
 
 
 # ---------------------------------------------------------------------------
+# Nhập / xuất kho ngoài POS (Stock Entry, Purchase Receipt, Stock Reconciliation, gộp đơn khi đóng ca...) — 2026-11-29
+# ---------------------------------------------------------------------------
+
+_PENDING_WAREHOUSES = "mypos_stock_pending_warehouses"
+
+
+def on_stock_ledger_change(doc, method=None):
+	"""doc_events Stock Ledger Entry on_submit: tăng phiên bản của mọi POS Profile đang bật dùng kho này, SAU commit.
+
+	Gom theo giao dịch (một phiếu nhiều dòng -> một lần tăng mỗi profile); rollback -> bỏ. Lỗi chỉ ghi Error Log,
+	không bao giờ chặn nghiệp vụ kho. Bin đổi bằng frappe.db.set_value (không có doc_events) nên móc vào Stock Ledger Entry.
+	"""
+	try:
+		warehouse = doc.get("warehouse")
+		if not warehouse:
+			return
+		if frappe.flags.get("mypos_chg_immediate"):
+			_bump_warehouses({warehouse})
+			return
+		pending = getattr(frappe.local, _PENDING_WAREHOUSES, None)
+		if pending is None:
+			pending = set()
+			setattr(frappe.local, _PENDING_WAREHOUSES, pending)
+			frappe.db.after_commit.add(_flush_pending_warehouses)
+			after_rollback = getattr(frappe.db, "after_rollback", None)
+			if after_rollback is not None and hasattr(after_rollback, "add"):
+				after_rollback.add(_drop_pending_warehouses)
+		pending.add(warehouse)
+	except Exception:
+		frappe.log_error(title="MYPOS: không ghi nhận thay đổi kho", message=frappe.get_traceback())
+
+
+def _drop_pending_warehouses():
+	setattr(frappe.local, _PENDING_WAREHOUSES, None)
+
+
+def _flush_pending_warehouses():
+	pending = getattr(frappe.local, _PENDING_WAREHOUSES, None) or set()
+	setattr(frappe.local, _PENDING_WAREHOUSES, None)
+	if pending:
+		_bump_warehouses(pending)
+
+
+def _bump_warehouses(warehouses):
+	try:
+		profiles = frappe.get_all(
+			"POS Profile", filters={"warehouse": ("in", list(warehouses)), "disabled": 0}, pluck="name"
+		)
+	except Exception:
+		frappe.log_error(title="MYPOS: không tìm được POS Profile theo kho", message=frappe.get_traceback())
+		return
+	for profile in profiles:
+		_incr(profile)
+
+
+# ---------------------------------------------------------------------------
 # POS Profile của user (cache cho get_pos_changes)
 # ---------------------------------------------------------------------------
 

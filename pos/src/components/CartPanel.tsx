@@ -3,6 +3,7 @@ import { useCart, cartLineKey, cartTotal, cartCount, formatMoney, MAX_LINE_QTY }
 import { usePos } from "../lib/pos-context";
 import { cartUnitSurcharge, formatCartOptions, missingRequired } from "../lib/options";
 import OptionChips from "./OptionChips";
+import { lineCap, useStock } from "../store/stock";
 import type { LoyaltyInfo, PricingPreview, PricingPreviewItem } from "../types";
 
 interface Props {
@@ -131,6 +132,8 @@ export default function CartPanel({
 	const orderNote = useCart((state) => state.orderNote);
 	const setOrderNote = useCart((state) => state.setOrderNote);
 	const clear = useCart((state) => state.clear);
+	// Đọc để vẽ lại khi số tồn đổi (lineCap đọc store).
+	useStock((state) => state.items);
 	const { config } = usePos();
 
 	const currency = config?.profile?.currency || "VND";
@@ -207,6 +210,8 @@ export default function CartPanel({
 				) : (
 					lines.map((line, idx) => {
 						const key = cartLineKey(line);
+						const cap = lineCap(lines, line.item_code, key, cartLineKey);
+						const atCap = cap !== null && line.qty >= cap;
 						const groups = line.option_groups || [];
 						const missing = missingRequired(line.options, groups);
 						const isOpen = expanded === key && groups.length > 0;
@@ -300,6 +305,8 @@ export default function CartPanel({
 											type="button"
 											className="pos-step"
 											aria-label="Tăng"
+											title={atCap ? "Đã đạt mức tồn còn lại" : undefined}
+											disabled={atCap}
 											onClick={() => increment(key)}
 										>
 											+

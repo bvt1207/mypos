@@ -141,6 +141,7 @@ def zz_test_shop(action="create", tag=None, open_shift=True, quiet=False):
 			("Mode of Payment", "name", "ZZTEST%"), ("MYPOS Menu", "name", "ZZTEST%"), ("Pricing Rule", "title", "ZZTEST%"),
 			("MYPOS Option Group", "title", "ZZTEST%"), ("MYPOS Buzzer", "name", "ZZT%"), ("MYPOS Banner", "title", "ZZTEST%"),
 			("User", "name", "zz.test.%"), ("POS Invoice", "pos_profile", "ZZTEST%"),
+			("Product Bundle", "new_item_code", "ZZTEST%"), ("Bin", "item_code", "ZZTEST%"),
 			("POS Opening Entry", "pos_profile", "ZZTEST%"), ("POS Closing Entry", "pos_profile", "ZZTEST%"),
 		]
 		total = 0

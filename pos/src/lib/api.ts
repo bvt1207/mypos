@@ -19,6 +19,7 @@ import type {
 	LoyaltyInfo,
 	PricingPreview,
 	ServeQueueItem,
+	StockAvailability,
 } from "../types";
 
 const API_BASE =
@@ -158,6 +159,7 @@ export const api = {
 	/** Phiên bản thay đổi của POS Profile (server chỉ đọc Redis) — lib/changes.ts. */
 	getPosChanges: (signal?: AbortSignal) =>
 		call<{ profile: string; v: string }>("get_pos_changes", {}, { signal }),
+	getStockAvailability: () => call<StockAvailability>("get_stock_availability"),
 	getOrderDetail: (invoice_name: string) => call<OrderDetail>("get_order_detail", { invoice_name }),
 	payCash: (invoice_name: string) => call<{ invoice_name: string; status: string; payment_status: string; amount: number; currency: string }>("pay_cash", { invoice_name }),
 	generateQr: (invoice_name: string) => call<QrInfo>("generate_qr", { invoice_name }),

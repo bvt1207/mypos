@@ -19,7 +19,8 @@ export default function ItemSheet({
 	onAdd: (sizeIndex: number, options: CartOption[], qty: number) => void;
 	onClose: () => void;
 }) {
-	const [sizeIndex, setSizeIndex] = useState(0);
+	// Mở sheet ở size đầu tiên còn hàng.
+	const [sizeIndex, setSizeIndex] = useState(() => Math.max(0, item.sizes.findIndex((s) => !s.sold_out)));
 	const [options, setOptions] = useState<CartOption[]>(() => defaultOptions(item.option_groups));
 	const [qty, setQty] = useState(1);
 	const size = item.sizes[sizeIndex];
@@ -55,10 +56,12 @@ export default function ItemSheet({
 			<button
 				type="button"
 				className="qo-btn qo-btn--primary qo-btn--lg qo-addbar__cta"
-				disabled={missing.length > 0}
+				disabled={missing.length > 0 || !!size.sold_out}
 				onClick={() => onAdd(sizeIndex, options, qty)}
 			>
-				{missing.length
+				{size.sold_out
+					? "Hết hàng"
+					: missing.length
 					? `Chọn ${missing[0].title}`
 					: `Thêm vào giỏ · ${money(unit * qty, currency)}`}
 			</button>
@@ -95,11 +98,12 @@ export default function ItemSheet({
 								type="button"
 								aria-pressed={i === sizeIndex}
 								className={`qo-chip ${i === sizeIndex ? "is-on" : ""}`}
+								disabled={!!s.sold_out}
 								onClick={() => setSizeIndex(i)}
 							>
 								{i === sizeIndex ? <IconCheck size={16} className="qo-chip__check" /> : null}
 								<span>{s.label || "Mặc định"}</span>
-								<span className="qo-chip__price">{money(s.rate, currency)}</span>
+								<span className="qo-chip__price">{s.sold_out ? "Hết hàng" : money(s.rate, currency)}</span>
 							</button>
 						))}
 					</div>

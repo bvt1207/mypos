@@ -227,6 +227,7 @@ class MYPOSMenu(Document):
                     "item_name",
                     "item_type",
                     "price",
+                    "send_to_kitchen",
                 ],
                 order_by="idx asc",
             )
@@ -294,6 +295,8 @@ class MYPOSMenu(Document):
                     row_dict, price_map, item_info, variants_map
                 )
                 if payload:
+                    # Cờ "Gửi pha chế" của dòng menu (2026-11-29, mặc định 1): frontend chỉ hiển thị, server tự ghi lên đơn.
+                    payload["send_to_kitchen"] = 0 if row_dict.get("send_to_kitchen") == 0 else 1
                     items_payload.append(payload)
                     option_targets.append((payload, row_dict["item_code"]))
 
@@ -314,6 +317,75 @@ class MYPOSMenu(Document):
         for payload, code in option_targets:
             payload["option_groups"] = public_groups(groups_by_code.get(code, []))
 
+        return result
+
+    @staticmethod
+    def menu_item_codes(price_list):
+        """Mọi mã bán được của các MYPOS Menu cùng Price List: Item thường + các variant đang bật của template (2026-11-29,
+        dùng cho tồn khả dụng). 4 truy vấn cho cả menu."""
+        menus = [m.name for m in frappe.get_all("MYPOS Menu", filters={"price_list": price_list}, fields=["name"])]
+        if not menus:
+            return []
+        codes = {
+            r.item_code
+            for r in frappe.get_all(
+                "MYPOS Menu Item",
+                filters={"parent": ("in", menus), "parenttype": "MYPOS Menu"},
+                fields=["item_code"],
+            )
+            if r.item_code
+        }
+        if not codes:
+            return []
+        result = set()
+        templates = []
+        for r in frappe.get_all(
+            "Item", filters={"name": ("in", list(codes))}, fields=["name", "has_variants", "variant_of", "disabled"]
+        ):
+            if r.disabled:
+                continue
+            if r.has_variants and not r.variant_of:
+                templates.append(r.name)
+            else:
+                result.add(r.name)
+        if templates:
+            result.update(
+                frappe.get_all("Item", filters={"variant_of": ("in", templates), "disabled": 0}, pluck="name")
+            )
+        return sorted(result)
+
+    @staticmethod
+    def kitchen_flags(price_list, item_codes):
+        """{item_code: 0/1} cờ "Gửi pha chế" theo dòng MYPOS Menu cùng Price List (2026-11-29).
+
+        Variant lấy cờ của template (dòng menu đặt template). Món không có dòng menu nào -> 1 (an toàn: vẫn qua bếp).
+        Nhiều menu cùng Price List khai khác nhau -> chỉ cần một dòng = 1 là 1.
+        """
+        codes = {c for c in item_codes or [] if c}
+        if not codes:
+            return {}
+        parents = {
+            r.name: r.variant_of
+            for r in frappe.get_all("Item", filters={"name": ("in", list(codes))}, fields=["name", "variant_of"])
+        }
+        lookup = codes | {v for v in parents.values() if v}
+        menus = [m.name for m in frappe.get_all("MYPOS Menu", filters={"price_list": price_list}, fields=["name"])]
+        flags = {}
+        if menus:
+            for r in frappe.get_all(
+                "MYPOS Menu Item",
+                filters={"parent": ("in", menus), "parenttype": "MYPOS Menu", "item_code": ("in", list(lookup))},
+                fields=["item_code", "send_to_kitchen"],
+            ):
+                flags[r.item_code] = max(flags.get(r.item_code, 0), 0 if r.send_to_kitchen == 0 else 1)
+        result = {}
+        for code in codes:
+            if code in flags:
+                result[code] = flags[code]
+            elif parents.get(code) in flags:
+                result[code] = flags[parents[code]]
+            else:
+                result[code] = 1
         return result
 
     @staticmethod

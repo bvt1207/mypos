@@ -56,7 +56,8 @@ ACC-PSINV-2026-00088). Hằng giá trị ở `pos_invoice_hooks.py` (`PAYMENT_UN
   - `set_kitchen_status` trên đơn đã kết thúc → lỗi "đã kết thúc".
   - `shift_open_orders(pos_profile, period_start)` → `{drafts, unprepared, undelivered}` (đơn Paid của ca: cùng profile + giờ ghi sổ ≥ giờ
     mở ca, chưa gộp; trạng thái rỗng tính là Chưa làm) — dùng cho chặn đóng ca.
-- `on_submit` tự động set `Chưa làm` khi Paid và chưa có kitchen status.
+- `on_submit` tự động set `Chưa làm` khi Paid và chưa có kitchen status. Từ 0.3.0: đơn KHÔNG có dòng nào cần pha chế
+  (`POS Invoice Item.custom_send_to_kitchen = 0` mọi dòng; dòng trống = cần) → `Đã làm` + `kitchen_done_at` ngay (`stock.md` §5).
 - **Sử dụng `doc.db_set()`** để update DB ngay trong transaction (tránh race condition).
 - Dùng để khởi tạo vòng đời pha chế sau khi thanh toán thành công.
 

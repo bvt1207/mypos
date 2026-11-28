@@ -4,8 +4,26 @@ import { usePos } from "../lib/pos-context";
 import { useCart } from "../store/cart";
 import { ALL_GROUPS, NO_GROUP, useMenuFilter } from "../store/menuFilter";
 import { useSearch } from "../store/search";
-import type { MenuItem, MenuSize } from "../types";
+import { useStock } from "../store/stock";
+import type { MenuItem, MenuSize, StockInfo } from "../types";
 import SizeModal from "./SizeModal";
+
+/** Hết hàng = có thông tin tồn, đang chặn (enforce) và số < 1. */
+export const isOut = (info?: StockInfo) => !!info && !!info.enforce && info.qty < 1;
+
+/** Số tồn (xanh) / 0 (đỏ). Không có thông tin tồn (món không quản lý tồn, không bundle) -> không hiện. */
+export function StockBadge({ info, className = "" }: { info?: StockInfo; className?: string }) {
+	if (!info) return null;
+	const out = info.qty < 1;
+	return (
+		<span
+			className={`pos-stock ${out ? "pos-stock--out" : "pos-stock--ok"} ${className}`.trim()}
+			title={info.kind === "bundle" ? "Số ly tối đa có thể pha (ước tính theo định mức)" : "Tồn khả dụng"}
+		>
+			{Math.max(0, Math.floor(info.qty))}
+		</span>
+	);
+}
 
 const itemName = (item: MenuItem) => item.name || item.item_name || item.item_code || "";
 const groupKey = (item: MenuItem) => item.item_group || NO_GROUP;
@@ -17,6 +35,7 @@ function MenuCard({ item }: { item: MenuItem }) {
 	// Món 1 size: label rỗng -> không mở SizeModal.
 	const isSingle = sizes.length === 1 && !sizes[0].label;
 	const add = useCart((state) => state.addVariant);
+	const stock = useStock((state) => state.items);
 	const [open, setOpen] = useState(false);
 
 	const codes = useMemo(() => sizes.map((s) => s.item_code), [sizes]);
@@ -28,6 +47,7 @@ function MenuCard({ item }: { item: MenuItem }) {
 
 	const addSize = (size: MenuSize) => {
 		if (size.rate == null) return; // chưa có giá: không chọn được
+		if (isOut(stock[size.item_code])) return; // hết hàng: không thêm được
 		// Tùy chọn: option_groups của món (variant kế thừa template), chọn sẵn giá trị mặc định;
 		// cashier chỉnh trong giỏ (dòng vừa thêm tự mở khu chip).
 		add({
@@ -47,17 +67,21 @@ function MenuCard({ item }: { item: MenuItem }) {
 		else setOpen(true);
 	};
 
+	// Tồn: món 1 size hiện số trên thẻ; nhiều size hiện ở bước chọn size. Hết mọi size -> làm mờ, không bấm được.
+	const singleStock = isSingle ? stock[sizes[0].item_code] : undefined;
+	const soldOut = sizes.length > 0 && sizes.every((s) => isOut(stock[s.item_code]));
 	// Món 1 size chưa có giá: làm mờ, không bấm được.
-	const unavailable = isSingle && sizes[0].rate == null;
+	const unavailable = (isSingle && sizes[0].rate == null) || soldOut;
+	const shortText = soldOut && singleStock?.short?.length ? `Hết: ${singleStock.short.join(", ")}` : "";
 
 	return (
 		<>
 			<button
 				type="button"
-				className="pos-menu-card"
+				className={`pos-menu-card${soldOut ? " is-out" : ""}`}
 				onClick={handleClick}
 				disabled={unavailable}
-				title={name}
+				title={soldOut ? `${name} — hết hàng` : name}
 			>
 				<span className="pos-menu-card__media">
 					{item.image ? (
@@ -68,8 +92,10 @@ function MenuCard({ item }: { item: MenuItem }) {
 						</span>
 					)}
 					{qty > 0 ? <span className="pos-menu-card__qty">x{qty}</span> : null}
+					<StockBadge info={singleStock} className="pos-menu-card__stock" />
 				</span>
 				<span className="pos-menu-card__name">{name}</span>
+				{shortText ? <span className="pos-menu-card__short">{shortText}</span> : null}
 			</button>
 
 			{open && !isSingle ? (

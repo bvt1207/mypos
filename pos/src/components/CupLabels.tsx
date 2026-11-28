@@ -37,8 +37,10 @@ export function cupIndexes(order: KitchenOrder): { per: number[][]; n: number } 
 export function buildCups(order: KitchenOrder, detail: OrderDetail | null): Cup[] {
 	const { per, n } = cupIndexes(order);
 	const cups: Cup[] = [];
+	// order.items chỉ gồm món pha chế -> ghép size với các món pha chế của chi tiết đơn (bỏ món lấy tại quầy).
+	const detailItems = (detail?.items || []).filter((d) => d.send_to_kitchen !== 0);
 	order.items.forEach((it, idx) => {
-		const d = detail?.items[idx];
+		const d = detailItems[idx];
 		const size = d && d.item_code === it.item_code ? d.size || "" : "";
 		per[idx].forEach((i) => {
 			cups.push({

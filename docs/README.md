@@ -56,6 +56,7 @@ mypos/                      gốc app (gốc repo GitHub)
 | [customer_display.md](rules/customer_display.md) | Màn khách `/pos/customer`, MYPOS Banner |
 | [order_status.md](rules/order_status.md) | Màn theo dõi đơn `/pos/status` (treo TV) |
 | [realtime.md](rules/realtime.md) | Phiên bản thay đổi theo POS Profile, realtime socket.io |
+| [stock.md](rules/stock.md) | Tồn khả dụng trên /pos, chặn bán vượt tồn, cờ "Gửi pha chế" (0.3.0) |
 | [workspace.md](rules/workspace.md) | Workspace / Sidebar / Desktop Icon |
 
 Ghi chú: các file `rules/` giữ lịch sử quyết định theo ngày và mã commit của repo phát triển gốc; mã commit đó không có trong repo này.

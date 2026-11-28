@@ -16,6 +16,9 @@
 
 ## 2. Điều kiện đơn (bám màn Pha chế `get_kitchen_orders`)
 
+Từ 0.3.0: đơn chỉ gồm món không qua bếp (cờ "Gửi pha chế" = 0) vào thẳng cột "Sẵn sàng nhận món" khi thanh toán (`stock.md` §5); cột vẫn
+hiện mọi món của đơn.
+
 `docstatus = 1`, `status = "Paid"`, `pos_profile` = profile đang hiện, và:
 
 | Cột | `custom_kitchen_status` | Sắp xếp (cũ nhất ở trên) |

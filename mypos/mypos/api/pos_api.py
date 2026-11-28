@@ -33,6 +33,8 @@ ORDER_CHANNEL = "POS"
 LEVELS = (50, 70, 100)
 # Trạng thái pha chế: MỘT nơi ở doctype/pos_invoice_hooks/kitchen_status.py (bước tiến + trạng thái kết thúc).
 from ..doctype.pos_invoice_hooks.kitchen_status import KITCHEN_FLOW, KITCHEN_TERMINAL_STATUSES  # noqa: E402
+# Tồn khả dụng + chặn bán vượt tồn (2026-11-29, docs/rules/stock.md).
+from ..doctype.pos_invoice_hooks.stock_availability import cached_snapshot, check_invoice_stock  # noqa: E402
 # Tên Item Attribute dùng làm size (khớp mypos_menu.py).
 SIZE_ATTRIBUTE = "Size"
 
@@ -351,9 +353,7 @@ def _normalize_items(items):
 			row["sugar_level"] = _level(item.get("sugar"))
 			row["ice_level"] = _level(item.get("ice"))
 
-		if item.get("warehouse"):
-			row["warehouse"] = item.get("warehouse")
-
+		# Không nhận warehouse từ client (2026-11-29): kho luôn là kho của POS Profile (_build_invoice), để kiểm tồn đúng kho.
 		normalized.append(row)
 
 	if pending:
@@ -866,6 +866,9 @@ def create_draft_order(
 	if order_type == "Dine In":
 		invoice.buzzer = _assign_buzzer(profile, buzzer)
 
+	# Chặn bán vượt tồn khả dụng (khóa Bin trong cùng giao dịch, docs/rules/stock.md §3).
+	check_invoice_stock(invoice)
+
 	try:
 		invoice.insert(ignore_permissions=True)
 	except Exception as exc:
@@ -988,6 +991,9 @@ def _build_invoice(profile, rows, order_type, customer, price_list, mode, order_
 	from ..doctype.mypos_menu.mypos_menu import MYPOSMenu
 
 	invoice = _new_invoice_header(profile, order_type, customer, price_list, mode, order_note)
+	# Cờ "Gửi pha chế" của dòng MYPOS Menu, ghi lên dòng hóa đơn lúc tạo đơn (2026-11-29, docs/rules/stock.md §5).
+	has_flag = frappe.get_meta("POS Invoice Item").has_field("custom_send_to_kitchen")
+	flags = MYPOSMenu.kitchen_flags(price_list, [r.get("item_code") for r in rows]) if has_flag else {}
 
 	for row in rows:
 		row = dict(row)
@@ -1036,6 +1042,9 @@ def _build_invoice(profile, rows, order_type, customer, price_list, mode, order_
 		row["uom"] = item.stock_uom
 		row["stock_uom"] = item.stock_uom
 		row["conversion_factor"] = 1
+		row["warehouse"] = profile.warehouse or ""
+		if has_flag:
+			row["custom_send_to_kitchen"] = flags.get(code, 1)
 		# Không gán rate/price_list_rate — ERPNext lấy giá theo Price List và áp CTKM.
 		invoice.append("items", row)
 
@@ -1458,6 +1467,29 @@ def get_pos_changes():
 
 
 @frappe.whitelist()
+def get_stock_availability():
+	"""Tồn khả dụng của các món trong menu, theo KHO của POS Profile người gọi (2026-11-29, docs/rules/stock.md).
+
+	Trả {profile, v, warehouse, items: {item_code: {kind, qty, enforce, short}}}. Tính một lần cho cả menu, cache Redis
+	CACHE_SECONDS theo (kho, Price List, phiên bản thay đổi) -> đơn mới / thanh toán / hủy / nhập xuất kho đổi khóa ngay.
+	Món không quản lý tồn và không có Product Bundle: không có trong `items` (frontend không hiện số).
+	"""
+	from ..doctype.mypos_menu.mypos_menu import MYPOSMenu
+	from ..doctype.pos_invoice_hooks.change_feed import get_version
+
+	_require_sale_role()
+	profile = _get_pos_profile()
+	version = get_version(profile.name)
+	warehouse = profile.get("warehouse") or ""
+	price_list = profile.get("selling_price_list") or ""
+	if not warehouse or not price_list:
+		return {"profile": profile.name, "v": version, "warehouse": warehouse, "items": {}}
+	codes = MYPOSMenu.menu_item_codes(price_list)
+	items = cached_snapshot(codes, warehouse, f"{price_list}:{version}")
+	return {"profile": profile.name, "v": version, "warehouse": warehouse, "items": items}
+
+
+@frappe.whitelist()
 def get_orders_summary(scope="shift", from_date=None, to_date=None, search=None):
 	"""Bộ đếm + thông tin ca cho màn Orders (COUNT cùng bộ lọc với get_orders).
 
@@ -1528,6 +1560,7 @@ def get_order_detail(invoice_name):
 			"price_list_rate": flt(row.price_list_rate),
 			"discount_percentage": flt(row.discount_percentage),
 			"pricing_rules": get_applied_pricing_rules(row.get("pricing_rules")),
+			"send_to_kitchen": 0 if row.get("custom_send_to_kitchen") == 0 else 1,
 		}
 		for row in invoice.items
 	]
@@ -1593,6 +1626,18 @@ def pay_cash(invoice_name):
 		frappe.throw(_("Đơn {0} không có POS Profile.").format(invoice_name))
 
 	amount = flt(invoice.rounded_total or invoice.grand_total)
+
+	# Tồn bị trừ ngoài POS sau khi đơn giữ chỗ -> ERPNext sẽ từ chối submit (thông báo tiếng Anh). Báo trước bằng tiếng Việt.
+	from ..doctype.pos_invoice_hooks.stock_availability import submit_shortfall
+
+	missing = submit_shortfall(invoice)
+	if missing:
+		frappe.throw(
+			_("Không đủ hàng để thanh toán đơn {0} (thiếu: {1}). Nhờ quản lý kiểm tra kho hoặc hủy đơn.").format(
+				invoice_name, ", ".join(missing)
+			),
+			title=_("Không đủ hàng"),
+		)
 
 	set_invoice_payment_mode(invoice, frappe.get_doc("POS Profile", invoice.pos_profile), "Cash")
 	for payment in invoice.payments:
@@ -1818,7 +1863,8 @@ def get_kitchen_orders(status=None, limit=100):
 		"POS Invoice Item",
 		filters={"parent": ["in", names], "parenttype": "POS Invoice"},
 		fields=["parent", "idx", "item_code", "item_name", "qty",
-			"sugar_level", "ice_level", "options"],
+			"sugar_level", "ice_level", "options"]
+		+ (["custom_send_to_kitchen"] if frappe.get_meta("POS Invoice Item").has_field("custom_send_to_kitchen") else []),
 		order_by="parent asc, idx asc",
 	)
 	from ..doctype.mypos_option_group.option_resolver import read_line_options
@@ -1832,7 +1878,13 @@ def get_kitchen_orders(status=None, limit=100):
 			"sugar_level": r.sugar_level or "",
 			"ice_level": r.ice_level or "",
 			"options": read_line_options(r.get("options"), r.sugar_level, r.ice_level),
+			# Cờ "Gửi pha chế" (2026-11-29): 0 = món lấy tại quầy, màn Pha chế chỉ ghi chú, không in tem.
+			"send_to_kitchen": 0 if r.get("custom_send_to_kitchen") == 0 else 1,
 		})
+
+	# Pha chế thuần (KITCHEN, không phải thu ngân / quản lý): ẩn đơn không có món nào cần pha chế.
+	if roles["kitchen"] and not roles["cashier"] and not roles["manager"]:
+		orders = [o for o in orders if any(i["send_to_kitchen"] for i in by_parent.get(o.name, []))]
 
 	for o in orders:
 		o["kitchen_status"] = o.pop("custom_kitchen_status")

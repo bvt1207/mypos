@@ -207,6 +207,11 @@ doc_events = {
 		"on_update": "mypos.mypos.doctype.pos_invoice_hooks.change_feed.clear_profile_cache",
 		"on_trash": "mypos.mypos.doctype.pos_invoice_hooks.change_feed.clear_profile_cache",
 	},
+	# Nhập / xuất kho (Stock Ledger Entry submit) -> tăng phiên bản các POS Profile dùng kho đó, sau commit: số tồn trên /pos
+	# cập nhật ngay thay vì chờ lưới an toàn 60 giây (docs/rules/stock.md §4).
+	"Stock Ledger Entry": {
+		"on_submit": "mypos.mypos.doctype.pos_invoice_hooks.change_feed.on_stock_ledger_change",
+	},
 	# MYPOS Buzzer: validate là native lifecycle method của Document -> Frappe tự gọi, không đăng ký ở đây.
 }
 

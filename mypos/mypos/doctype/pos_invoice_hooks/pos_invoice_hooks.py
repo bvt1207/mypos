@@ -26,6 +26,11 @@ PAYMENT_PAID = "Đã thanh toán"
 PAYMENT_CANCELLED = "Hủy"
 
 
+def has_kitchen_items(doc):
+    """Đơn có ít nhất một dòng cần pha chế (custom_send_to_kitchen khác 0; trống / đơn cũ = 1)."""
+    return any(row.get("custom_send_to_kitchen") != 0 for row in doc.get("items") or [])
+
+
 class PosInvoiceHooks:
 
     @staticmethod
@@ -46,12 +51,23 @@ class PosInvoiceHooks:
         2. Giữ Buzzer cho đơn Dine In đã thanh toán.
         """
         if doc.status == "Paid" and not doc.custom_kitchen_status:
-            doc.custom_kitchen_status = "Chưa làm"
-            doc.db_set(
-                "custom_kitchen_status",
-                "Chưa làm",
-                update_modified=False,
-            )
+            if has_kitchen_items(doc):
+                doc.custom_kitchen_status = "Chưa làm"
+                doc.db_set(
+                    "custom_kitchen_status",
+                    "Chưa làm",
+                    update_modified=False,
+                )
+            else:
+                # Đơn chỉ gồm món không qua bếp (cờ "Gửi pha chế" = 0, 2026-11-29): sẵn sàng ngay khi thanh toán ->
+                # cột "Sẵn sàng" ở /pos/status, hàng chờ thu ngân; thu ngân giao rồi bấm "Đã hoàn thành" như luồng chuẩn.
+                from frappe.utils import now_datetime
+
+                values = {"custom_kitchen_status": "Đã làm"}
+                if doc.meta.has_field("kitchen_done_at"):
+                    values["kitchen_done_at"] = now_datetime()
+                doc.update(values)
+                doc.db_set(values, update_modified=False)
 
         if (
             doc.docstatus == 1

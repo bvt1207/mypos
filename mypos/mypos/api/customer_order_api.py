@@ -655,8 +655,30 @@ def get_menu(session_token):
 	s = _session(session_token)
 	_rate("read_session", s.sid)
 	profile = _profile(s.branch)
-	_price_list, menus = _menu(profile)
+	price_list, menus = _menu(profile)
+	_mark_sold_out(profile, price_list, menus)
 	return {"menus": menus, "currency": profile.currency or ""}
+
+
+def _mark_sold_out(profile, price_list, menus):
+	"""Gắn cờ `sold_out` (size + món) theo tồn khả dụng kho của POS Profile (2026-11-29). Khách chỉ thấy "Hết hàng",
+	KHÔNG thấy số tồn. Server vẫn chặn khi tạo đơn (create_order). Lỗi tính tồn -> không gắn cờ, không chặn xem menu."""
+	from ..doctype.pos_invoice_hooks.change_feed import get_version
+	from ..doctype.pos_invoice_hooks.stock_availability import cached_snapshot
+
+	codes = [size["item_code"] for menu in menus for item in menu["items"] for size in item["sizes"]]
+	warehouse = profile.get("warehouse") or ""
+	try:
+		stock = cached_snapshot(codes, warehouse, f"{price_list}:{get_version(profile.name)}") if warehouse else {}
+	except Exception:
+		frappe.log_error(title="Order QR: không tính được tồn khả dụng", message=frappe.get_traceback())
+		stock = {}
+	for menu in menus:
+		for item in menu["items"]:
+			for size in item["sizes"]:
+				info = stock.get(size["item_code"])
+				size["sold_out"] = bool(info and info.get("enforce") and info.get("qty", 0) < 1)
+			item["sold_out"] = all(size["sold_out"] for size in item["sizes"])
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
@@ -708,6 +730,8 @@ def create_order(session_token, items, order_type, order_note=None, redeem_point
 		invoice.guest_session = s.sid
 		invoice.redeemed_points = 0
 		invoice.buzzer = None
+		# Chặn bán vượt tồn khả dụng (cùng hàm với /pos, khóa Bin trong cùng giao dịch).
+		P.check_invoice_stock(invoice)
 		try:
 			invoice.insert(ignore_permissions=True)
 		except Exception:

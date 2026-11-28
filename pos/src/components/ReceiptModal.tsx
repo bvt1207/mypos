@@ -72,6 +72,9 @@ export default function ReceiptModal({ order, kind = "customer", forced = false,
 	const modeLabel = (mode: string) =>
 		config?.payment_modes.find((m) => m.name === mode)?.label || mode;
 	const paidRows = order.payments.filter((p) => p.amount > 0);
+	// Phiếu pha chế: chỉ món có cờ "Gửi pha chế"; món lấy tại quầy ghi một dòng cuối. Hóa đơn khách: mọi món.
+	const shownItems = isKitchen ? order.items.filter((it) => it.send_to_kitchen !== 0) : order.items;
+	const counterItems = isKitchen ? order.items.filter((it) => it.send_to_kitchen === 0) : [];
 
 	const doPrint = () => {
 		setAttempted(true);
@@ -199,7 +202,7 @@ export default function ReceiptModal({ order, kind = "customer", forced = false,
 
 						<hr className="pos-receipt__sep" />
 
-						{order.items.map((it, i) => (
+						{shownItems.map((it, i) => (
 							<div key={`${it.item_code}-${i}`} className="pos-receipt__item">
 								<div className="pos-receipt__item-name">
 									{isKitchen ? `${it.qty}× ` : ""}
@@ -225,6 +228,12 @@ export default function ReceiptModal({ order, kind = "customer", forced = false,
 								) : null}
 							</div>
 						))}
+
+						{counterItems.length ? (
+							<div className="pos-receipt__opts">
+								Lấy tại quầy: {counterItems.map((it) => `${it.qty}× ${itemTitle(it.item_name, it.size)}`).join(", ")}
+							</div>
+						) : null}
 
 						{order.order_note ? (
 							<>

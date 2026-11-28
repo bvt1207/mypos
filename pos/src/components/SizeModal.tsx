@@ -1,7 +1,9 @@
 import { formatMoney } from "../store/cart";
 import { usePos } from "../lib/pos-context";
 import type { MenuItem, MenuSize } from "../types";
+import { useStock } from "../store/stock";
 import ItemModalFrame from "./ItemModalFrame";
+import { isOut, StockBadge } from "./MenuGrid";
 
 interface Props {
 	item: MenuItem;
@@ -15,6 +17,7 @@ interface Props {
 export default function SizeModal({ item, sizes, open, onClose, onPick }: Props) {
 	const { config } = usePos();
 	const currency = config?.profile?.currency || "VND";
+	const stock = useStock((state) => state.items);
 
 	if (!open) return null;
 
@@ -23,7 +26,9 @@ export default function SizeModal({ item, sizes, open, onClose, onPick }: Props)
 			{sizes.length ? (
 				<div className="pos-size-rows">
 					{sizes.map((size) => {
-						const disabled = size.rate == null;
+						const info = stock[size.item_code];
+						const out = isOut(info);
+						const disabled = size.rate == null || out;
 						return (
 							<button
 								type="button"
@@ -32,9 +37,19 @@ export default function SizeModal({ item, sizes, open, onClose, onPick }: Props)
 								disabled={disabled}
 								onClick={() => onPick(size)}
 							>
-								<span className="pos-size-row__label">{size.label || size.item_code}</span>
+								<span className="pos-size-row__label">
+									{size.label || size.item_code}
+									<StockBadge info={info} className="pos-size-row__stock" />
+									{out && info?.short?.length ? (
+										<span className="pos-size-row__short">Hết: {info.short.join(", ")}</span>
+									) : null}
+								</span>
 								<span className="pos-size-row__price">
-									{disabled ? "Chưa có giá" : formatMoney(size.rate as number, currency)}
+									{size.rate == null
+										? "Chưa có giá"
+										: out
+											? "Hết hàng"
+											: formatMoney(size.rate as number, currency)}
 								</span>
 							</button>
 						);
