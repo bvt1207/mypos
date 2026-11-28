@@ -100,6 +100,9 @@ def zz_test_shop(action="create", tag=None, open_shift=True, quiet=False):
 			delete("Pricing Rule", n)
 		for n in frappe.get_all("MYPOS Option Group", filters={"title": ["like", f"{t}%"]}, pluck="name"):
 			delete("MYPOS Option Group", n)
+		# Product Bundle tạm (stock_fixture): xóa SAU khi đã xóa đơn (ERPNext chặn xóa bundle còn đơn đã submit), TRƯỚC Item.
+		for n in frappe.get_all("Product Bundle", filters={"new_item_code": ["like", f"{t}%"]}, pluck="name"):
+			delete("Product Bundle", n)
 		for n in frappe.get_all("Item Price", filters={"item_code": ["like", f"{t}%"]}, pluck="name"):
 			delete("Item Price", n)
 		for n in frappe.get_all("Item", filters={"name": ["like", f"{t}%"]}, pluck="name"):
@@ -131,6 +134,9 @@ def zz_test_shop(action="create", tag=None, open_shift=True, quiet=False):
 		tags = set(frappe.get_all("Branch", filters={"name": ["like", f"{PREFIX}%"]}, pluck="name"))
 		tags |= set(frappe.get_all("Item Group", filters={"name": ["like", f"{PREFIX}%"]}, pluck="name"))
 		tags |= set(frappe.get_all("Price List", filters={"name": ["like", f"{PREFIX}%"]}, pluck="name"))
+		# Product Bundle sót (new_item_code = "<tag>-<mã>")
+		tags |= {n.rsplit("-", 1)[0] for n in frappe.get_all("Product Bundle",
+			filters={"new_item_code": ["like", f"{PREFIX}%"]}, pluck="new_item_code")}
 		return sorted(tags)
 
 	# ------------------------------------------------------------------ list

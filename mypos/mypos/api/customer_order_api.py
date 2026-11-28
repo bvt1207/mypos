@@ -723,20 +723,27 @@ def create_order(session_token, items, order_type, order_note=None, redeem_point
 	mode = _transfer_mode(profile)
 	note = _clean_text(order_note, NOTE_MAX)
 
-	with _as_user(shift.user):
-		invoice = P._build_invoice(profile, rows, order_type, s.customer, price_list, mode, note)
-		invoice.order_channel = CHANNEL_QR
-		invoice.qr_source = s.qr
-		invoice.guest_session = s.sid
-		invoice.redeemed_points = 0
-		invoice.buzzer = None
-		# Chặn bán vượt tồn khả dụng (cùng hàm với /pos, khóa Bin trong cùng giao dịch).
-		P.check_invoice_stock(invoice)
-		try:
-			invoice.insert(ignore_permissions=True)
-		except Exception:
-			frappe.log_error(title="Order QR: không tạo được đơn", message=frappe.get_traceback())
-			frappe.throw(_("Không tạo được đơn. Vui lòng thử lại hoặc gọi món tại quầy."))
+	def _once():
+		with _as_user(shift.user):
+			invoice = P._build_invoice(profile, rows, order_type, s.customer, price_list, mode, note)
+			invoice.order_channel = CHANNEL_QR
+			invoice.qr_source = s.qr
+			invoice.guest_session = s.sid
+			invoice.redeemed_points = 0
+			invoice.buzzer = None
+			# Chặn bán vượt tồn khả dụng (cùng hàm với /pos, khóa Bin trong cùng giao dịch).
+			P.check_invoice_stock(invoice)
+			try:
+				invoice.insert(ignore_permissions=True)
+			except frappe.QueryDeadlockError:
+				raise
+			except Exception:
+				frappe.log_error(title="Order QR: không tạo được đơn", message=frappe.get_traceback())
+				frappe.throw(_("Không tạo được đơn. Vui lòng thử lại hoặc gọi món tại quầy."))
+			return invoice
+
+	# Xung đột khóa khi nhiều người cùng đặt một món -> chạy lại trong giao dịch mới (không gọi lại _rate: bộ đếm ở Redis).
+	invoice = P.retry_on_lock_conflict(_once)
 
 	row = _own_invoice(s, invoice.name)
 	return _orders_payload(s, [row])[0]

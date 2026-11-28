@@ -838,6 +838,43 @@ def create_draft_order(
 	buzzer=None,
 	redeem_points=0,
 ):
+	"""Tạo đơn Draft; thử lại khi tranh chấp khóa (xem _create_draft_order_once)."""
+	_require_sale_role()
+	return retry_on_lock_conflict(
+		lambda: _create_draft_order_once(
+			items, order_type, customer_name, mode_of_payment, branch_name, price_list, order_note, buzzer, redeem_points
+		)
+	)
+
+
+def retry_on_lock_conflict(fn, attempts=3):
+	"""Chạy lại fn trong giao dịch MỚI khi MariaDB báo xung đột khóa (2026-11-29, docs/rules/stock.md §3).
+
+	Hai thu ngân cùng bán một món: người sau đọc khóa sau khi người trước commit; MariaDB bật innodb_snapshot_isolation trả lỗi 1020
+	"Record has changed since last read" (Frappe đổi thành QueryDeadlockError) thay vì đọc bản mới. Rollback rồi chạy lại -> snapshot mới
+	thấy đơn của người trước -> chặn đúng bằng MyposStockError. Hết lượt -> lỗi tiếng Việt.
+	"""
+	for attempt in range(attempts):
+		try:
+			return fn()
+		except frappe.QueryDeadlockError:
+			frappe.db.rollback()
+			frappe.clear_messages()
+			if attempt == attempts - 1:
+				frappe.throw(_("Máy khác vừa tạo đơn cùng lúc. Vui lòng bấm tạo đơn lại."))
+
+
+def _create_draft_order_once(
+	items,
+	order_type,
+	customer_name=None,
+	mode_of_payment=None,
+	branch_name=None,
+	price_list=None,
+	order_note=None,
+	buzzer=None,
+	redeem_points=0,
+):
 	"""Tạo POS Invoice ở trạng thái Draft từ giỏ hàng.
 
 	- Thanh toán tại quầy: đơn được tạo Draft, nhân viên thu tiền ở màn Orders.
@@ -845,7 +882,6 @@ def create_draft_order(
 	- redeem_points > 0: đổi điểm thành giảm giá trên Grand Total (xem _apply_redemption).
 	- Pricing Rule (CTKM) do ERPNext tự áp; điểm đổi tối đa tính trên tổng SAU luật.
 	"""
-	_require_sale_role()
 	rows = _normalize_items(items)
 	if not rows:
 		frappe.throw(_("Chưa chọn món nào để tạo đơn."))
@@ -871,6 +907,8 @@ def create_draft_order(
 
 	try:
 		invoice.insert(ignore_permissions=True)
+	except frappe.QueryDeadlockError:
+		raise  # retry_on_lock_conflict chạy lại trong giao dịch mới
 	except Exception as exc:
 		frappe.throw(_("Không tạo được đơn: {0}").format(str(exc)))
 

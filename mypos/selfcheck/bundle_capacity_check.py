@@ -80,8 +80,8 @@ def check_bundle_capacity():
 		ok("F6 bundle tắt -> M không còn số", c["M"] not in snap())
 	finally:
 		frappe.db.rollback()
-		zz_stock_fixture(shop, "drop")
-		zz_test_shop("drop", shop["tag"])
+		zz_test_shop("drop", shop["tag"])  # đơn trước (ERPNext chặn xóa Product Bundle còn đơn đã submit), rồi bundle / Item
+		zz_stock_fixture(shop, "drop")  # Bin còn sót (nếu có)
 
 	print(f"KẾT QUẢ: {sum(results)}/{len(results)} PASS")
 	return all(results)

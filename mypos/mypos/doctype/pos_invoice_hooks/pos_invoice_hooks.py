@@ -50,7 +50,9 @@ class PosInvoiceHooks:
         1. Khởi tạo trạng thái pha chế nếu đơn đã Paid.
         2. Giữ Buzzer cho đơn Dine In đã thanh toán.
         """
-        if doc.status == "Paid" and not doc.custom_kitchen_status:
+        # custom_kitchen_status là Select không default, lựa chọn đầu "Chưa làm": Frappe tự gán "Chưa làm" cho đơn mới
+        # (create_new.get_static_default_value) -> lúc submit giá trị là "" hoặc "Chưa làm", đều là "chưa xử lý".
+        if doc.status == "Paid" and (doc.custom_kitchen_status or "") in ("", "Chưa làm"):
             if has_kitchen_items(doc):
                 doc.custom_kitchen_status = "Chưa làm"
                 doc.db_set(

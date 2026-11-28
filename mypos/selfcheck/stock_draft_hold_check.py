@@ -80,8 +80,8 @@ def check_stock_draft_hold():
 		ok("B5 hủy nháp DRK -> ING 4, DRK 4", avail(c["ING"]) == 4 and snap(c["DRK"]) == 4, f"ING {avail(c['ING'])}, DRK {snap(c['DRK'])}")
 	finally:
 		frappe.db.rollback()
-		zz_stock_fixture(shop, "drop")
-		zz_test_shop("drop", shop["tag"])
+		zz_test_shop("drop", shop["tag"])  # đơn trước (ERPNext chặn xóa Product Bundle còn đơn đã submit), rồi bundle / Item
+		zz_stock_fixture(shop, "drop")  # Bin còn sót (nếu có)
 
 	print(f"KẾT QUẢ: {sum(results)}/{len(results)} PASS")
 	return all(results)

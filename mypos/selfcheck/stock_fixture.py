@@ -10,7 +10,8 @@ def zz_stock_fixture(shop, action="create", stock=None, bundles=None, flags=None
 	  flags   = {"CF": 0, "TS": 1} -> cờ "Gửi pha chế" của dòng menu có sẵn của quán thử ("<tag>-CF"...).
 	  Commit. Trả {"warehouse", "codes": {suffix: item_code}}.
 	action = "qty": set_qty = {"STK": 0} -> đặt lại Bin.actual_qty, commit.
-	action = "drop": xóa Product Bundle + Bin của mọi mã "<tag>-*" (Item / giá / menu / đơn do zz_test_shop("drop") xóa sau).
+	action = "drop": xóa Product Bundle + Bin còn sót của mọi mã "<tag>-*". Gọi SAU zz_test_shop("drop") (đã xóa đơn, bundle, Item):
+	  ERPNext chặn xóa Product Bundle khi còn đơn đã submit dùng nó.
 	  Thử lại 3 lần khi QueryDeadlockError, commit từng bước; còn sót -> in WARN.
 	"""
 	import time

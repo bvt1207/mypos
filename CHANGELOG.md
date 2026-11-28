@@ -23,6 +23,7 @@ Tính năng mới: tồn kho trên `/pos`, chặn bán vượt tồn, cờ "Gử
 - `/pos`: số tồn khả dụng (xanh; 0 đỏ + thẻ mờ) cho món quản lý tồn; món có Product Bundle hiện số ly tối đa theo định mức ở bước chọn size,
   hết thì "Hết: <nguyên liệu>". Giỏ: "+" dừng ở mức tồn, nhập tay vượt tự hạ + thông báo. Cập nhật theo phiên bản thay đổi + realtime.
 - `/order`: "Hết hàng" (không hiện số).
+- Tạo đơn (`/pos`, `/order`) tự chạy lại tối đa 3 lần khi MariaDB báo xung đột khóa (lỗi 1020 / deadlock) thay vì báo lỗi kỹ thuật.
 - Field `MYPOS Menu Item.send_to_kitchen` ("Gửi pha chế"), Custom Field `POS Invoice Item.custom_send_to_kitchen`.
 - Nhập / xuất kho (Stock Ledger Entry) tăng phiên bản thay đổi của POS Profile dùng kho đó → số tồn trên `/pos` cập nhật ngay.
 - API `pos_api.get_stock_availability`. Selfcheck: `stock_paid_check`, `stock_draft_hold_check`, `stock_oversell_check`,

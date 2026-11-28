@@ -53,6 +53,11 @@ khả dụng = Bin.actual_qty − Bin.reserved_stock          (tồn sổ − gi
   3. đã bán chưa gộp + giữ chỗ nháp đọc bằng `LOCK IN SHARE MODE` — DB chạy **REPEATABLE-READ** (đã kiểm `@@tx_isolation`), đọc thường
      dùng snapshot cũ và không thấy đơn nháp vừa commit. Truy vấn nháp lọc theo `item_code` (mã + bundle chứa mã) để khóa ít dòng;
   4. thiếu → `MyposStockError`: "Không đủ hàng để tạo đơn: X chỉ còn 1; Y — Hết: Đá viên."
+  5. MariaDB của bench bật snapshot isolation: locking read gặp dòng đã đổi sau snapshot của giao dịch → lỗi 1020 "Record has changed since
+     last read" (Frappe đổi thành `QueryDeadlockError`; selfcheck C4 lần 1 đã gặp). `pos_api.retry_on_lock_conflict` (dùng cho
+     `create_draft_order` và `/order` `create_order`) rollback rồi chạy lại trong giao dịch mới, tối đa 3 lần → người sau nhận đúng
+     `MyposStockError`; hết lượt → "Máy khác vừa tạo đơn cùng lúc. Vui lòng bấm tạo đơn lại." Lỗi này ở bước insert (vd. naming series) cũng được
+     chạy lại. `/order`: bộ đếm giới hạn tần suất (Redis) không bị đếm lại.
 - `pay_cash`: trước khi submit kiểm theo công thức ERPNext (`submit_shortfall`, không trừ nháp) → lỗi tiếng Việt thay cho thông báo
   tiếng Anh của ERPNext.
 - **Webhook SePay — tiền về nhưng thiếu tồn** (tồn bị trừ ngoài POS sau khi đơn giữ chỗ, vd. Stock Entry / Sales Invoice trên Desk):
@@ -82,6 +87,9 @@ khả dụng = Bin.actual_qty − Bin.reserved_stock          (tồn sổ − gi
   món cũ = 1.
 - Ghi lên dòng hóa đơn lúc tạo đơn: `POS Invoice Item.custom_send_to_kitchen` (Custom Field, chỉ đọc, mặc định 1; `MYPOSMenu.kitchen_flags`
   theo Price List của đơn; không có dòng menu → 1). Sửa menu sau đó không đổi đơn cũ. Dòng trống (đơn trước 0.3.0) = cần pha chế.
+- Lưu ý: `custom_kitchen_status` là Select không default, lựa chọn đầu "Chưa làm" → Frappe gán sẵn "Chưa làm" cho đơn nháp mới (cùng cơ chế
+  `options.md` §2). Vì vậy `on_submit` coi "" và "Chưa làm" đều là "chưa xử lý" (selfcheck D2 lần 1 đã gặp: đơn chỉ món cờ 0 vẫn "Chưa làm").
+  Màn Pha chế / /pos/status chỉ lấy đơn docstatus 1 nên đơn nháp mang "Chưa làm" không hiện. Không sửa fixture (tránh migrate dữ liệu cũ).
 - Đơn **chỉ** gồm món cờ 0: `on_submit` đặt "Đã làm" + `kitchen_done_at` ngay khi thanh toán → cột "Sẵn sàng nhận món" ở /pos/status, hàng
   chờ thu ngân (toast); thu ngân / quản lý bấm "Đã hoàn thành" ở tab "Đã làm" của màn Pha chế như luồng chuẩn. Đơn QR → khách nhận banner
   "mời đến quầy nhận". Pha chế (chỉ POS KITCHEN) **không thấy** đơn này ở mọi tab.
