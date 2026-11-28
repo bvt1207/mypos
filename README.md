@@ -65,7 +65,7 @@ mypos/mypos/     module "MYPOS": api/, doctype/ (MYPOS Menu, Option Group, Buzze
 ## Status
 
 Phiên bản 0.2.0 (thay đổi bảo mật webhook SePay: nâng cấp từ 0.1.x xem [CHANGELOG.md](CHANGELOG.md) mục "Nâng cấp"). Chạy trên
-Frappe / ERPNext 16.61.0; bộ selfcheck 25 test (`docs/testing.md`). Tồn đọng đã biết: [CLAUDE.md](CLAUDE.md) (mục "Trạng thái").
+Frappe / ERPNext 16.61.0; bộ selfcheck **25/25 PASS** trên site mới (`docs/testing.md`). Tồn đọng đã biết: [CLAUDE.md](CLAUDE.md) (mục "Trạng thái").
 
 ## License
 
