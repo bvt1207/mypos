@@ -10,9 +10,9 @@ dùng được cho nhiều doanh nghiệp / chi nhánh.
 
 | Màn / chức năng | Mô tả |
 |---|---|
-| Bán món `/pos` | Menu theo Price List, size / tùy chọn món (đường, đá, topping có phụ thu), Mang đi / Tại quán, khách vãng lai, tích / đổi điểm Loyalty |
+| Bán món `/pos` | Menu theo Price List, size / tùy chọn món (đường, đá, topping có phụ thu), Mang đi / Tại quán, khách vãng lai, tích / đổi điểm Loyalty, số tồn khả dụng + chặn bán vượt tồn |
 | Đơn hàng `/pos/orders` | Đơn trong ca, thu tiền mặt, VietQR chuyển khoản (SePay), hủy đơn có lý do, in hóa đơn / tem ly |
-| Pha chế `/pos/kitchen` | Chưa làm → Đã làm → Đã hoàn thành; chỉ đơn đã thanh toán; thông báo thu ngân khi đơn xong |
+| Pha chế `/pos/kitchen` | Chưa làm → Đã làm → Đã hoàn thành; chỉ đơn đã thanh toán, chỉ món có cờ "Gửi pha chế"; thông báo thu ngân khi đơn xong |
 | Thẻ bàn | Gán thẻ cho đơn Tại quán, tự trả thẻ khi đơn kết thúc |
 | Đặt món QR `/order/<token>` | Khách tự đặt và chuyển khoản trên điện thoại, theo dõi "Đơn của tôi" |
 | Màn khách `/pos/customer` | Giỏ hàng, tổng tiền, VietQR, banner quảng cáo |
@@ -64,8 +64,11 @@ mypos/mypos/     module "MYPOS": api/, doctype/ (MYPOS Menu, Option Group, Buzze
 
 ## Status
 
-Phiên bản 0.2.0 (thay đổi bảo mật webhook SePay: nâng cấp từ 0.1.x xem [CHANGELOG.md](CHANGELOG.md) mục "Nâng cấp"). Chạy trên
-Frappe / ERPNext 16.61.0; bộ selfcheck **31/31 PASS** trên site mới (`docs/testing.md`). Tồn đọng đã biết: [CLAUDE.md](CLAUDE.md) (mục "Trạng thái").
+Phiên bản **0.3.0**: tồn khả dụng trên `/pos` theo kho của POS Profile (món Product Bundle hiện số ly tối đa theo định mức), chặn bán vượt
+tồn ở server (đơn nháp giữ chỗ, hai thu ngân cùng bán món cuối chỉ một đơn thành công), cờ "Gửi pha chế" trên dòng MYPOS Menu (màn Pha chế
+chỉ hiện món cần pha chế; món cũ mặc định = 1). Nâng cấp từ 0.2.x: xem [CHANGELOG.md](CHANGELOG.md) mục "Nâng cấp" (migrate, `npm run build`,
+`bench build --app mypos`, restart). Chạy trên Frappe / ERPNext 16.61.0; bộ selfcheck **31/31 PASS** trên site mới (`docs/testing.md`).
+Tồn đọng đã biết: [CLAUDE.md](CLAUDE.md) (mục "Trạng thái").
 
 ## License
 

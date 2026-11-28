@@ -22,7 +22,7 @@ Nguyên tắc không được vi phạm:
 7. Desk dùng màn **Apps** (mặc định Frappe 16.61): ô MYPOS qua hook `add_to_apps_screen` (không khai `route`; điểm đến = mục đầu tiên của
    Sidebar "MYPOS" sau lọc quyền, Sidebar xếp Admin, Manager, Cashier, Kitchen). Không dựa vào lưới Desktop Icon (Frappe đang loại bỏ).
 
-## Trạng thái (2026-11-27)
+## Trạng thái (2026-11-29, bản 0.3.0)
 
 - Chạy trên frappe / erpnext **16.61.0** (yêu cầu `>=16.50, <17`, không cần HRMS). Bộ selfcheck **31/31 PASS** (2026-11-29, bản 0.3.0; trước 25/25, 23/23, 22/22) trên site mới
   (`mypos.selfcheck.check_everything.check_everything`), gồm 16 test ghi dữ liệu chạy trên "quán thử" `ZZTEST-*` tự dựng / tự dọn.
