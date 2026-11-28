@@ -24,7 +24,7 @@ Nguyên tắc không được vi phạm:
 
 ## Trạng thái (2026-11-27)
 
-- Chạy trên frappe / erpnext **16.61.0** (yêu cầu `>=16.50, <17`, không cần HRMS). Bộ selfcheck **25/25 PASS** (2026-11-28, bản 0.2.0; trước 23/23, 22/22) trên site mới
+- Chạy trên frappe / erpnext **16.61.0** (yêu cầu `>=16.50, <17`, không cần HRMS). Bộ selfcheck **31/31 PASS** (2026-11-29, bản 0.3.0; trước 25/25, 23/23, 22/22) trên site mới
   (`mypos.selfcheck.check_everything.check_everything`), gồm 16 test ghi dữ liệu chạy trên "quán thử" `ZZTEST-*` tự dựng / tự dọn.
 - Sửa cho ERPNext 16.61: tự mở ca điền `balance_details` (`docs/rules/roles.md` §2b); giữ CTKM theo tổng qty mỗi mã khi lưu đơn bằng hook
   `validate` của POS Invoice (`docs/rules/options.md` §7).
